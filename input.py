@@ -87,6 +87,8 @@ def main():
     #         shutil.copy(function_paths[current_index], "ring_function.py")
     #
     #         print(f"\n{BLUE}Now set the configuration acording to the {items[current_index]}:{NC}\n")
+
+    shutil.copy(function_paths[2], "ring_function.py")
     inputs[2].get_inputs()
 
 if __name__ == "__main__":

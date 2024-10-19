@@ -34,19 +34,26 @@ def ring_function(ring_data: SimpleNamespace, secret_path: Path):
 
     if ring_data.current_index >= len(ring_data.ring) - 1:
         done_pipeline_path: Path = (
-            Path(client.datasite_path) / "app_pipelines" / "multi_ring" / "done"
+            Path(client.datasite_path) / "app_pipelines" / "fl_ring" / "done"
         )
         destination_datasite_path = Path(client.sync_folder) / client.email 
         new_model_path = (
             destination_datasite_path
             / "app_pipelines"
-            / "multi_ring"
+            / "fl_ring"
             / "running"
             / ring_data.model
         )
-
+        final_data_json_path = (
+            destination_datasite_path
+            / "app_pipelines"
+            / "fl_ring"
+            / "running"
+            / "data.json" 
+        )
 
         shutil.move(new_model_path, str(done_pipeline_path))
+        shutil.move(final_data_json_path, str(done_pipeline_path))
         return 0
     
     model = SimpleNN()  # Initialize model
@@ -60,56 +67,59 @@ def ring_function(ring_data: SimpleNamespace, secret_path: Path):
     optimizer = optim.SGD(model.parameters(), lr=float(ring_data.learning_rate))
 
     dataset_path_files = [f for f in os.listdir(dataset_path) if f.endswith('.pt')]
-    
-    for dataset_file in dataset_path_files:
+    running_loss = 0 
+    if len(dataset_path_files) > 0:
+        for dataset_file in dataset_path_files:
 
-        # Load MNIST dataset
-        transform = transforms.Compose([transforms.ToTensor()])
+            # load mnist dataset
+            transform = transforms.compose([transforms.totensor()])
 
-        # Load the saved MNIST subset
-        images, labels = torch.load(dataset_path + '/' + dataset_file)
+            # load the saved mnist subset
+            images, labels = torch.load(dataset_path + '/' + dataset_file)
 
-        # Create a TensorDataset
-        dataset = TensorDataset(images, labels)
+            # create a tensordataset
+            dataset = tensordataset(images, labels)
 
-        # Create a DataLoader for the dataset
-        train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+            # create a dataloader for the dataset
+            train_loader = dataloader(dataset, batch_size=32, shuffle=true)
 
-        print("\n\n Training...\n\n ")
-        # Training loop
-        for epoch in range(int(ring_data.iterations)):
-            running_loss = 0
-            for i, (images, labels) in enumerate(train_loader, 1):
-                optimizer.zero_grad()
+            print("\n\n training...\n\n ")
+            # training loop
+            for epoch in range(int(ring_data.iterations)):
+                running_loss = 0
+                for i, (images, labels) in enumerate(train_loader, 1):
+                    optimizer.zero_grad()
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+                    loss.backward()
+                    optimizer.step()
+
+                    # accumulate loss
+                    running_loss += loss.item()
+
+                    # print loss every 200 epochs
+                    if i % 200 == 0:
+                        print(
+                            f"epoch [{epoch+1}/{ring_data.iterations}], step [{i}/{len(train_loader)}], loss: {running_loss/200:.4f}"
+                        )
+                        running_loss = 0.0
+
+        print("\n\n done...\n\n ")
+
+        # evaluation
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for images, labels in train_loader:
                 outputs = model(images)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
-                # Accumulate loss
-                running_loss += loss.item()
-
-                # Print loss every 200 epochs
-                if i % 200 == 0:
-                    print(
-                        f"Epoch [{epoch+1}/{ring_data.iterations}], Step [{i}/{len(train_loader)}], Loss: {running_loss/200:.4f}"
-                    )
-                    running_loss = 0.0
-
-    print("\n\n Done...\n\n ")
-
-    # Evaluation
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for images, labels in train_loader:
-            outputs = model(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    accuracy = 100 * correct / total
-    print(f'Accuracy of the model on the test dataset: {accuracy:.2f}%')
+        accuracy = 100 * correct / total
+        print(f'accuracy of the model on the test dataset: {accuracy:.2f}%')
+    else:
+        print("\n\n\n No data found, skipping to the next person!\n\n")
 
     next_index = ring_data.current_index + 1
     next_person = ring_data.ring[next_index]
@@ -118,13 +128,17 @@ def ring_function(ring_data: SimpleNamespace, secret_path: Path):
     new_model_path = (
         destination_datasite_path
         / "app_pipelines"
-        / "multi_ring"
+        / "fl_ring"
         / "running"
         / ring_data.model
     )
+   
+    iterations = 0
+    if len(dataset_path_files) > 0:
+        iterations = ring_data.iterations
 
     print(f"\n\n Saving it in {str(new_model_path)}\n\n")
     # Serialize the model
     os.makedirs(os.path.dirname(str(new_model_path)), exist_ok=True)
     torch.save(model.state_dict(), str(new_model_path))
-    return 0
+    return {"loss": running_loss, "iterations": ring_data.data['iterations'] + iterations} 

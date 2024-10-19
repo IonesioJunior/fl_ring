@@ -66,6 +66,10 @@ def get_inputs():
                 )
             )
 
+    model = SimpleNN()
+    serialized_model = torch.save(model.state_dict(), "mnist_model.pth")
+
+
     default_dataset_path = os.getcwd()
     
     default_dataset_path += "/datasets"

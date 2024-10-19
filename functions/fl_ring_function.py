@@ -72,7 +72,7 @@ def ring_function(ring_data: SimpleNamespace, secret_path: Path):
         for dataset_file in dataset_path_files:
 
             # load mnist dataset
-            transform = transforms.compose([transforms.totensor()])
+            transform = transforms.Compose([transforms.totensor()])
 
             # load the saved mnist subset
             images, labels = torch.load(dataset_path + '/' + dataset_file)

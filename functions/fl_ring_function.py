@@ -72,16 +72,16 @@ def ring_function(ring_data: SimpleNamespace, secret_path: Path):
         for dataset_file in dataset_path_files:
 
             # load mnist dataset
-            transform = transforms.Compose([transforms.totensor()])
+            transform = transforms.Compose([transforms.ToTensor()])
 
             # load the saved mnist subset
             images, labels = torch.load(dataset_path + '/' + dataset_file)
 
             # create a tensordataset
-            dataset = tensordataset(images, labels)
+            dataset = TensorDataset(images, labels)
 
             # create a dataloader for the dataset
-            train_loader = dataloader(dataset, batch_size=32, shuffle=true)
+            train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
             print("\n\n training...\n\n ")
             # training loop
